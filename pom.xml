@@ -54,7 +54,12 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
+    <pluginRepositories>
+        <pluginRepository>
+            <id>spring-release</id>
+            <url>http://repo.spring.io/release</url>
+        </pluginRepository>
+    </pluginRepositories>
 <build>
     <pluginManagement>
         <plugins>
