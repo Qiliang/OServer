@@ -2,7 +2,7 @@ package com.idea.ohmydata.persisitence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nikoyo.otest.ODataServlet;
+import com.idea.ohmydata.ODataServlet;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.olingo.commons.api.data.*;

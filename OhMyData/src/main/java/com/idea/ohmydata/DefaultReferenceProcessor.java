@@ -1,6 +1,6 @@
 package com.idea.ohmydata;
 
-import com.nikoyo.otest.persisitence.Storage;
+import com.idea.ohmydata.persisitence.Storage;
 import org.apache.olingo.commons.api.data.ContextURL;
 import org.apache.olingo.commons.api.data.Entity;
 import org.apache.olingo.commons.api.data.EntityCollection;

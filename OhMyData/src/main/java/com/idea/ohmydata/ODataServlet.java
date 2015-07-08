@@ -1,6 +1,6 @@
 package com.idea.ohmydata;
 
-import com.nikoyo.otest.persisitence.Storage;
+import com.idea.ohmydata.persisitence.Storage;
 import org.apache.olingo.server.api.OData;
 import org.apache.olingo.server.api.ODataHttpHandler;
 import org.apache.olingo.server.api.ServiceMetadata;
