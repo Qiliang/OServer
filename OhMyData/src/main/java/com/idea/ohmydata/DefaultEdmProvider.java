@@ -1,29 +1,37 @@
 package com.idea.ohmydata;
 
 
+import org.apache.commons.io.IOUtils;
 import org.apache.olingo.commons.api.ODataException;
+import org.apache.olingo.commons.api.edm.EdmEntityType;
 import org.apache.olingo.commons.api.edm.FullQualifiedName;
 import org.apache.olingo.commons.api.edm.provider.*;
+import org.apache.olingo.commons.api.http.HttpStatusCode;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
 
-    private List<CsdlSchema> schemas;
+    private final List<CsdlSchema> schemas = new ArrayList<>();
 
+    private final CsdlEntityType EdmEntityType = new CsdlEntityType();
 
-    public DefaultEdmProvider(String metadata) {
+    public DefaultEdmProvider(String metadata) throws ODataException {
         try {
-            schemas = DefaultEdmxParser.parse(metadata);
+            EdmEntityType.setAbstract(true);
+            EdmEntityType.setName("EntityType");
+            schemas.addAll(DefaultEdmxParser.parse(DefaultEdmProvider.class.getClassLoader().getResourceAsStream("odata4.xml")));
+            schemas.addAll(DefaultEdmxParser.parse(metadata));
         } catch (ParserConfigurationException e) {
-            e.printStackTrace();
+            throw new ODataException(e);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new ODataException(e);
         } catch (SAXException e) {
-            e.printStackTrace();
+            throw new ODataException(e);
         }
     }
 
@@ -36,6 +44,7 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
         }
         return null;
     }
+
 
     @Override
     public CsdlComplexType getComplexType(FullQualifiedName complexTypeName) throws ODataException {
@@ -50,6 +59,8 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
     @Override
     public CsdlEntityType getEntityType(FullQualifiedName entityTypeName) throws ODataException {
 
+        if (entityTypeName.getFullQualifiedNameAsString().equals("Edm.EntityType"))
+            return EdmEntityType;
         for (CsdlSchema schema : schemas) {
             if (schema.getNamespace().equals(entityTypeName.getNamespace())) {
                 CsdlEntityType entityType = schema.getEntityType(entityTypeName.getName());
@@ -78,10 +89,13 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
 
     @Override
     public CsdlEntityContainer getEntityContainer() throws ODataException {
-        CsdlEntityContainer entityContainer = null;
+        CsdlEntityContainer entityContainer = new CsdlEntityContainer();
         for (CsdlSchema schema : schemas) {
-            entityContainer = schema.getEntityContainer();
+            CsdlEntityContainer container = schema.getEntityContainer();
+            entityContainer.getEntitySets().addAll(container.getEntitySets());
+            entityContainer.getEntitySets().addAll(container.getEntitySets());
         }
+
         return entityContainer;
     }
 

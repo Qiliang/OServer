@@ -1,6 +1,7 @@
 package com.idea.ohmydata;
 
 import com.idea.ohmydata.persisitence.Storage;
+import org.apache.olingo.commons.api.ODataException;
 import org.apache.olingo.server.api.OData;
 import org.apache.olingo.server.api.ODataHttpHandler;
 import org.apache.olingo.server.api.ServiceMetadata;
@@ -92,7 +93,11 @@ public class ODataServlet extends HttpServlet {
             LOG.error("Server Error occurred in ExampleServlet", e);
             throw new ServletException(e);
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOG.error("Server Error occurred in ExampleServlet", e);
+            throw new ServletException(e);
+        } catch (ODataException e) {
+            LOG.error("Server Error occurred in ExampleServlet", e);
+            throw new ServletException(e);
         }
     }
 

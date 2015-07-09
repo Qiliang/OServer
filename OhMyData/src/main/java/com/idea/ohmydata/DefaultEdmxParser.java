@@ -14,6 +14,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -23,6 +24,15 @@ import java.util.List;
 
 
 public class DefaultEdmxParser {
+
+
+    public static List<CsdlSchema> parse(InputStream metadata) throws ParserConfigurationException, IOException, SAXException {
+        try {
+            return parse(IOUtils.toString(metadata));
+        } finally {
+            IOUtils.closeQuietly(metadata);
+        }
+    }
 
 
     public static List<CsdlSchema> parse(String metadata) throws ParserConfigurationException, IOException, SAXException {
@@ -39,6 +49,8 @@ public class DefaultEdmxParser {
 
             CsdlSchema schema = parseSchema(schemaNode);
             schema.setNamespace(attributes.getString("Namespace"));
+            schema.setAlias(attributes.getString("Alias"));
+
             schemaList.add(schema);
         }
 
@@ -102,29 +114,26 @@ public class DefaultEdmxParser {
         enumType.setName(attributes.getString("Name"));
 
         //enumType.setUnderlyingType(attributes.getString("UnderlyingType"));
+
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node child = node.getChildNodes().item(i);
-            if (child.getNodeName().equals("Member")) enumType.getMembers().add(parseEnumMember(child));
+            if (child.getNodeName().equals("Member"))
+                enumType.getMembers().add(parseEnumMember(child, (int) Math.pow(2, i)));
         }
-        if (attributes.getString("UnderlyingType") == null && enumType.getMembers().size() > 0) {
-
-            try {
-                Integer.valueOf(enumType.getMembers().get(0).getValue());
-                enumType.setUnderlyingType(EdmPrimitiveTypeKind.Int32.getFullQualifiedName());
-            } catch (NumberFormatException e) {
-                enumType.setUnderlyingType(EdmPrimitiveTypeKind.String.getFullQualifiedName());
-            }
-
-        }
+        if (attributes.getString("UnderlyingType") == null)
+            enumType.setUnderlyingType(EdmPrimitiveTypeKind.Int32.getFullQualifiedName());
 
         return enumType;
     }
 
-    private static CsdlEnumMember parseEnumMember(Node node) {
+    private static CsdlEnumMember parseEnumMember(Node node, int defaultValue) {
         CsdlEnumMember enumMember = new CsdlEnumMember();
         final XmlAttributes attributes = new XmlAttributes(node.getAttributes());
         enumMember.setName(attributes.getString("Name"));
-        enumMember.setValue(attributes.getString("Value"));
+        if (attributes.getString("Value") != null)
+            enumMember.setValue(attributes.getString("Value"));
+        else
+            enumMember.setValue(String.valueOf(defaultValue));
         return enumMember;
     }
 
@@ -132,6 +141,9 @@ public class DefaultEdmxParser {
         CsdlEntityType entityType = new CsdlEntityType();
         XmlAttributes attributes = new XmlAttributes(node.getAttributes());
         entityType.setName(attributes.getString("Name"));
+        if (attributes.getString("BaseType") != null)
+            entityType.setBaseType(attributes.getString("BaseType"));
+        entityType.setAbstract(attributes.getBoolean("Abstract"));
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node child = node.getChildNodes().item(i);
             if (child.getNodeName().equals("Property")) entityType.getProperties().add(parseProperty(child));
@@ -175,6 +187,7 @@ public class DefaultEdmxParser {
         p.setName(attributes.getString("Name"));
         setType(attributes.getString("Type"), p);
         p.setPartner(attributes.getString("Partner"));
+
         p.setNullable(attributes.getBoolean("Nullable", true));
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node child = node.getChildNodes().item(i);
