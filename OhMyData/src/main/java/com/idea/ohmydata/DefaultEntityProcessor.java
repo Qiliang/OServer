@@ -5,9 +5,11 @@ import com.idea.ohmydata.persisitence.visitor.FilterVisitor;
 import org.apache.olingo.commons.api.data.ContextURL;
 import org.apache.olingo.commons.api.data.Entity;
 import org.apache.olingo.commons.api.data.Property;
+import org.apache.olingo.commons.api.data.ValueType;
 import org.apache.olingo.commons.api.edm.EdmEntitySet;
 import org.apache.olingo.commons.api.edm.EdmEntityType;
 import org.apache.olingo.commons.api.edm.EdmProperty;
+import org.apache.olingo.commons.api.edm.constants.EdmTypeKind;
 import org.apache.olingo.commons.api.format.ContentType;
 import org.apache.olingo.commons.api.format.ODataFormat;
 import org.apache.olingo.commons.api.http.HttpHeader;
@@ -33,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -113,12 +116,25 @@ public class DefaultEntityProcessor implements EntityProcessor {
 
 
     private void validateProperties(EdmEntityType edmEntityType, Entity entity) throws DeserializerException {
+        List<Property> newPropertList=new ArrayList<>();
+
         for (String propertyName : edmEntityType.getPropertyNames()) {
             EdmProperty edmProperty = (EdmProperty) edmEntityType.getProperty(propertyName);
             Property property = entity.getProperty(propertyName);
-            if ((property == null || property.getValue() == null) && !edmProperty.isNullable()) {
+            if ((property == null || property.getValue() == null) && !edmProperty.isNullable() && edmProperty.getDefaultValue() == null) {
                 throw new DeserializerException("Property: " + propertyName + " must not be null.", DeserializerException.MessageKeys.INVALID_NULL_PROPERTY, propertyName);
             }
+            if (property == null && edmProperty.isCollection()) {
+                Property newProperty = new Property();
+                newProperty.setName(edmProperty.getName());
+                newProperty.setType(edmProperty.getType().getFullQualifiedName().getFullQualifiedNameAsString());
+                newProperty.setValue(ValueType.COLLECTION_PRIMITIVE, new ArrayList<>());
+                newPropertList.add(newProperty);
+            }
+        }
+
+        for (Property property : newPropertList) {
+            entity.addProperty(property);
         }
     }
 

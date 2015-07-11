@@ -113,8 +113,6 @@ public class DefaultEdmxParser {
         enumType.setFlags(attributes.getBoolean("IsFlags"));
         enumType.setName(attributes.getString("Name"));
 
-        //enumType.setUnderlyingType(attributes.getString("UnderlyingType"));
-
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node child = node.getChildNodes().item(i);
             if (child.getNodeName().equals("Member"))
@@ -122,6 +120,8 @@ public class DefaultEdmxParser {
         }
         if (attributes.getString("UnderlyingType") == null)
             enumType.setUnderlyingType(EdmPrimitiveTypeKind.Int32.getFullQualifiedName());
+        else
+            enumType.setUnderlyingType(attributes.getString("UnderlyingType"));
 
         return enumType;
     }

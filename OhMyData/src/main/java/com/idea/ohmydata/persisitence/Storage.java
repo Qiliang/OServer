@@ -186,7 +186,7 @@ public class Storage {
             PGobject jsonObject = (PGobject) row.get("data");
             deserializerResult = deserializer.entity(IOUtils.toInputStream(jsonObject.getValue()), entityType);
         } catch (DeserializerException e) {
-            throw new ODataApplicationException("DeserializerException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("DeserializerException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         }
 
         return deserializerResult.getEntity();
@@ -256,16 +256,16 @@ public class Storage {
             expandOption.addExpandItem(new ExpandItemImpl() {{
                 setIsStar(true);
             }});
-            EntitySerializerOptions options = EntitySerializerOptions.with().contextURL(contextUrl).expand(expandOption).build();
+            EntitySerializerOptions options = EntitySerializerOptions.with().contextURL(contextUrl).build();
             SerializerResult serializedResponse = serializer.entity(getServiceMetadata(), edmEntitySet.getEntityType(), entity, options);
 
 
             return IOUtils.toString(serializedResponse.getContent());
 
         } catch (SerializerException e) {
-            throw new ODataApplicationException("SerializerException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("SerializerException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         } catch (IOException e) {
-            throw new ODataApplicationException("IOException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("IOException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         }
     }
 
@@ -312,7 +312,7 @@ public class Storage {
         try {
             jsonObject.setValue(toJson(edmEntitySet, entity));
         } catch (SQLException e) {
-            throw new ODataApplicationException("SQLException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("SQLException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         }
 
         int result = jdbcTemplate.update(sqlBuilder.toString(), jsonObject);
@@ -334,7 +334,7 @@ public class Storage {
             if (jsonObject == null) return new HashMap();
             return mapper.readValue(jsonObject.getValue(), Map.class);
         } catch (IOException e) {
-            throw new ODataApplicationException("IOException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("IOException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         }
     }
 
@@ -365,9 +365,9 @@ public class Storage {
         try {
             jsonObject.setValue(mapper.writeValueAsString(linkMap));
         } catch (SQLException e) {
-            throw new ODataApplicationException("SQLException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("SQLException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         } catch (JsonProcessingException e) {
-            throw new ODataApplicationException("JsonProcessingException", HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
+            throw new ODataApplicationException("JsonProcessingException:" + e.getMessage(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
         }
 
         int result = jdbcTemplate.update(sqlBuilder.toString(), jsonObject);
