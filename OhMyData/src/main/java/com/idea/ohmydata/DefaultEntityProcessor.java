@@ -1,7 +1,7 @@
 package com.idea.ohmydata;
 
-import com.idea.ohmydata.persisitence.Storage;
-import com.idea.ohmydata.persisitence.visitor.FilterVisitor;
+import com.idea.ohmydata.persistence.PersistenceDataService;
+import com.idea.ohmydata.persistence.Storage;
 import org.apache.olingo.commons.api.data.ContextURL;
 import org.apache.olingo.commons.api.data.Entity;
 import org.apache.olingo.commons.api.data.Property;
@@ -9,7 +9,6 @@ import org.apache.olingo.commons.api.data.ValueType;
 import org.apache.olingo.commons.api.edm.EdmEntitySet;
 import org.apache.olingo.commons.api.edm.EdmEntityType;
 import org.apache.olingo.commons.api.edm.EdmProperty;
-import org.apache.olingo.commons.api.edm.constants.EdmTypeKind;
 import org.apache.olingo.commons.api.format.ContentType;
 import org.apache.olingo.commons.api.format.ODataFormat;
 import org.apache.olingo.commons.api.http.HttpHeader;
@@ -26,17 +25,12 @@ import org.apache.olingo.server.api.serializer.SerializerException;
 import org.apache.olingo.server.api.serializer.SerializerResult;
 import org.apache.olingo.server.api.uri.UriInfo;
 import org.apache.olingo.server.api.uri.UriParameter;
-import org.apache.olingo.server.api.uri.UriResource;
-import org.apache.olingo.server.api.uri.UriResourceEntitySet;
 import org.apache.olingo.server.api.uri.queryoption.*;
-import org.apache.olingo.server.core.uri.queryoption.ExpandItemImpl;
-import org.apache.olingo.server.core.uri.queryoption.ExpandOptionImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 
@@ -48,8 +42,7 @@ public class DefaultEntityProcessor implements EntityProcessor {
     private ServiceMetadata serviceMetadata;
 
     @Autowired
-    private Storage storage;
-
+    private PersistenceDataService persistenceDataService;
 
     public DefaultEntityProcessor() {
 
@@ -65,9 +58,9 @@ public class DefaultEntityProcessor implements EntityProcessor {
         ExpandOption responseExpandOption = UriInfoUtils.getExpand(uriInfo);
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
         SelectOption selectOption = UriInfoUtils.getSelect(uriInfo);
-        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
+//        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
 
-        Entity entity = storage.readEntityData(edmEntitySet, keyPredicates, responseExpandOption);
+        Entity entity = persistenceDataService.readEntity(uriInfo, odata, serviceMetadata);
 
         EdmEntityType entityType = edmEntitySet.getEntityType();
 
@@ -90,16 +83,8 @@ public class DefaultEntityProcessor implements EntityProcessor {
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
         EdmEntityType edmEntityType = edmEntitySet.getEntityType();
 
-        InputStream requestInputStream = request.getBody();
-        ODataFormat requestODataFormat = ODataFormat.fromContentType(requestFormat);
-        ODataDeserializer deserializer = this.odata.createDeserializer(requestODataFormat);
-        DeserializerResult result = deserializer.entity(requestInputStream, edmEntityType);
-        Entity requestEntity = result.getEntity();
-
-        validateProperties(edmEntityType, requestEntity);
-        Entity createdEntity = requestEntity;
         //写入数据
-        storage.createEntityData(edmEntitySet, createdEntity);
+        Entity createdEntity = persistenceDataService.createEntity(uriInfo, request, odata, serviceMetadata);
 
         ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).build();
         EntitySerializerOptions options = EntitySerializerOptions.with().contextURL(contextUrl).build();
@@ -112,30 +97,6 @@ public class DefaultEntityProcessor implements EntityProcessor {
         response.setContent(serializedResponse.getContent());
         response.setStatusCode(HttpStatusCode.CREATED.getStatusCode());
         response.setHeader(HttpHeader.CONTENT_TYPE, responseFormat.toContentTypeString());
-    }
-
-
-    private void validateProperties(EdmEntityType edmEntityType, Entity entity) throws DeserializerException {
-        List<Property> newPropertList=new ArrayList<>();
-
-        for (String propertyName : edmEntityType.getPropertyNames()) {
-            EdmProperty edmProperty = (EdmProperty) edmEntityType.getProperty(propertyName);
-            Property property = entity.getProperty(propertyName);
-            if ((property == null || property.getValue() == null) && !edmProperty.isNullable() && edmProperty.getDefaultValue() == null) {
-                throw new DeserializerException("Property: " + propertyName + " must not be null.", DeserializerException.MessageKeys.INVALID_NULL_PROPERTY, propertyName);
-            }
-            if (property == null && edmProperty.isCollection()) {
-                Property newProperty = new Property();
-                newProperty.setName(edmProperty.getName());
-                newProperty.setType(edmProperty.getType().getFullQualifiedName().getFullQualifiedNameAsString());
-                newProperty.setValue(ValueType.COLLECTION_PRIMITIVE, new ArrayList<>());
-                newPropertList.add(newProperty);
-            }
-        }
-
-        for (Property property : newPropertList) {
-            entity.addProperty(property);
-        }
     }
 
     public void updateEntity(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType requestFormat, ContentType responseFormat) throws ODataApplicationException, DeserializerException, SerializerException {
@@ -151,7 +112,8 @@ public class DefaultEntityProcessor implements EntityProcessor {
         Entity requestEntity = result.getEntity();
 
         HttpMethod httpMethod = request.getMethod();
-        storage.updateEntity(edmEntitySet, keyPredicates, requestEntity, httpMethod);
+        persistenceDataService.updateEntity(uriInfo, request, odata, serviceMetadata);
+        //storage.updateEntity(edmEntitySet, keyPredicates, requestEntity, httpMethod);
 
         response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
 
@@ -160,7 +122,8 @@ public class DefaultEntityProcessor implements EntityProcessor {
     public void deleteEntity(ODataRequest request, ODataResponse response, UriInfo uriInfo) throws ODataApplicationException {
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
         List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
-        storage.deleteEntityData(edmEntitySet, keyPredicates);
+        persistenceDataService.deleteEntity(uriInfo);
+//        storage.deleteEntityData(edmEntitySet, keyPredicates);
 
         response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
     }

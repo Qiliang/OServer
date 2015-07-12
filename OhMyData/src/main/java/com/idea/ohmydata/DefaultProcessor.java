@@ -37,6 +37,7 @@ public class DefaultProcessor implements MetadataProcessor, ServiceDocumentProce
     public void processError(ODataRequest request, ODataResponse response, ClientServerError serverError, ContentType requestedContentType) {
         try {
             ODataSerializer serializer = odata.createSerializer(ODataFormat.fromContentType(requestedContentType));
+            if (serverError.getMessage() == null) serverError.setMessage(serverError.getException().toString());
             response.setContent(serializer.error(serverError).getContent());
             response.setStatusCode(serverError.getStatusCode());
             response.setHeader(HttpHeader.CONTENT_TYPE, requestedContentType.toContentTypeString());

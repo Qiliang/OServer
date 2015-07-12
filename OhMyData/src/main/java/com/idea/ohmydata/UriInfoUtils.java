@@ -1,7 +1,7 @@
 package com.idea.ohmydata;
 
 
-import com.idea.ohmydata.persisitence.visitor.FilterVisitor;
+import com.idea.ohmydata.persistence.postgres.visitor.FilterVisitor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.olingo.commons.api.edm.EdmEntitySet;
 import org.apache.olingo.commons.api.edm.EdmProperty;

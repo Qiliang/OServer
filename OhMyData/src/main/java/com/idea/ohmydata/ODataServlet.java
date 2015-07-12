@@ -1,6 +1,6 @@
 package com.idea.ohmydata;
 
-import com.idea.ohmydata.persisitence.Storage;
+import com.idea.ohmydata.persistence.Storage;
 import org.apache.olingo.commons.api.ODataException;
 import org.apache.olingo.server.api.OData;
 import org.apache.olingo.server.api.ODataHttpHandler;
@@ -41,6 +41,9 @@ public class ODataServlet extends HttpServlet {
     private DefaultEntityProcessor entityProcessor;
 
     @Autowired
+    private DefaultEntityCollectionProcessor entityCollectionProcessor;
+
+    @Autowired
     private ReferenceProcessor referenceProcessor;
 
     @Autowired
@@ -77,16 +80,15 @@ public class ODataServlet extends HttpServlet {
             DefaultEdmProvider provider = new DefaultEdmProvider(metadata.getString());
             List<EdmxReference> references = new ArrayList<EdmxReference>();
             ServiceMetadata serviceMetadata = odata.createServiceMetadata(provider, references);
-            storage.setOData(odata);
-            storage.setServiceMetadata(serviceMetadata);
-
+          //  storage.setOData(odata);
+           // storage.setServiceMetadata(serviceMetadata);
             ODataHttpHandler handler = odata.createHandler(serviceMetadata);
             handler.setSplit(1);
             handler.register(defaultProcessor);
-            handler.register(new DefaultEntityCollectionProcessor(storage));
+            handler.register(entityCollectionProcessor);
             handler.register(entityProcessor);
             handler.register(referenceProcessor);
-            handler.register(new DefaultPrimitiveProcessor(storage));
+           // handler.register(new DefaultPrimitiveProcessor(storage));
             handler.process(req, resp);
 
         } catch (RuntimeException e) {

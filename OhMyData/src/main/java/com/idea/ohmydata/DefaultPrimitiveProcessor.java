@@ -1,6 +1,6 @@
 package com.idea.ohmydata;
 
-import com.idea.ohmydata.persisitence.Storage;
+import com.idea.ohmydata.persistence.Storage;
 import org.apache.olingo.commons.api.data.ContextURL;
 import org.apache.olingo.commons.api.data.Entity;
 import org.apache.olingo.commons.api.data.Property;
@@ -20,8 +20,6 @@ import org.apache.olingo.server.api.serializer.PrimitiveSerializerOptions;
 import org.apache.olingo.server.api.serializer.SerializerException;
 import org.apache.olingo.server.api.serializer.SerializerResult;
 import org.apache.olingo.server.api.uri.*;
-import org.apache.olingo.server.api.uri.queryoption.ExpandOption;
-import org.apache.olingo.server.api.uri.queryoption.SelectOption;
 import org.apache.olingo.server.core.uri.queryoption.ExpandOptionImpl;
 
 import java.io.InputStream;

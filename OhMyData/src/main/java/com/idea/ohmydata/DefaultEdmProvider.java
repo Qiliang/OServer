@@ -18,14 +18,10 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
 
     private final List<CsdlSchema> schemas = new ArrayList<>();
 
-    private final CsdlEntityType EdmEntityType = new CsdlEntityType();
-
     public DefaultEdmProvider(String metadata) throws ODataException {
         try {
-            EdmEntityType.setAbstract(true);
-            EdmEntityType.setName("EntityType");
-            schemas.addAll(DefaultEdmxParser.parse(DefaultEdmProvider.class.getClassLoader().getResourceAsStream("odata4.xml")));
-            //schemas.addAll(DefaultEdmxParser.parse(metadata));
+            //schemas.addAll(DefaultEdmxParser.parse(DefaultEdmProvider.class.getClassLoader().getResourceAsStream("odata4.xml")));
+            schemas.addAll(DefaultEdmxParser.parse(metadata));
         } catch (ParserConfigurationException e) {
             throw new ODataException(e);
         } catch (IOException e) {
@@ -59,8 +55,6 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
     @Override
     public CsdlEntityType getEntityType(FullQualifiedName entityTypeName) throws ODataException {
 
-        if (entityTypeName.getFullQualifiedNameAsString().equals("Edm.EntityType"))
-            return EdmEntityType;
         for (CsdlSchema schema : schemas) {
             if (schema.getNamespace().equals(entityTypeName.getNamespace())) {
                 CsdlEntityType entityType = schema.getEntityType(entityTypeName.getName());

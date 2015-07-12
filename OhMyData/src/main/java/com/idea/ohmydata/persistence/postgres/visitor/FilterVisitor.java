@@ -1,4 +1,4 @@
-package com.idea.ohmydata.persisitence.visitor;
+package com.idea.ohmydata.persistence.postgres.visitor;
 
 
 import org.apache.olingo.commons.api.edm.EdmEnumType;

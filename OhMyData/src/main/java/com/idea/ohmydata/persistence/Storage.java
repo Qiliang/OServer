@@ -1,4 +1,4 @@
-package com.idea.ohmydata.persisitence;
+package com.idea.ohmydata.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
