@@ -45,16 +45,10 @@ public class DefaultEntityCollectionProcessor implements EntityCollectionProcess
 
         uriInfo.asUriInfoResource().getTopOption();
 
-        String sql = UriInfoUtils.getFilter(uriInfo);
-        String orderBy = UriInfoUtils.getOrderBy(uriInfo);
-        ExpandOption responseExpandOption = UriInfoUtils.getExpand(uriInfo);
-        int top = UriInfoUtils.getTop(uriInfo);
-        int skip = UriInfoUtils.getSkip(uriInfo);
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
         SelectOption selectOption = UriInfoUtils.getSelect(uriInfo);
 
-        EntityCollection entitySet = persistenceDataService.readEntityCollection(uriInfo);
-//        EntityCollection entitySet = storage.readEntitySetData(edmEntitySet, top, skip, sql, orderBy, responseExpandOption);
+        EntityCollection entitySet = persistenceDataService.readEntityCollection(uriInfo, odata, serviceMetadata);
 
         ODataFormat format = ODataFormat.fromContentType(responseFormat);
         ODataSerializer serializer = odata.createSerializer(format);
@@ -65,7 +59,7 @@ public class DefaultEntityCollectionProcessor implements EntityCollectionProcess
 
         EntityCollectionSerializerOptions opts = EntityCollectionSerializerOptions.with()
                 .contextURL(contextUrl)
-                .expand(responseExpandOption)
+                .expand(uriInfo.asUriInfoResource().getExpandOption())
                 .select(selectOption)
                 .build();
         SerializerResult serializedContent = serializer.entityCollection(serviceMetadata, edmEntityType, entitySet, opts);

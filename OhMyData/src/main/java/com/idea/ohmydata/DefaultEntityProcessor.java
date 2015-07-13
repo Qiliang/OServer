@@ -101,7 +101,6 @@ public class DefaultEntityProcessor implements EntityProcessor {
 
     public void updateEntity(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType requestFormat, ContentType responseFormat) throws ODataApplicationException, DeserializerException, SerializerException {
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
-        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
         EdmEntityType edmEntityType = edmEntitySet.getEntityType();
 
 
@@ -121,8 +120,8 @@ public class DefaultEntityProcessor implements EntityProcessor {
 
     public void deleteEntity(ODataRequest request, ODataResponse response, UriInfo uriInfo) throws ODataApplicationException {
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
-        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
-        persistenceDataService.deleteEntity(uriInfo);
+//        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
+//        persistenceDataService.deleteEntity(uriInfo);
 //        storage.deleteEntityData(edmEntitySet, keyPredicates);
 
         response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());

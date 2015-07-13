@@ -1,5 +1,6 @@
 package com.idea.ohmydata;
 
+import com.idea.ohmydata.persistence.PersistenceDataService;
 import com.idea.ohmydata.persistence.Storage;
 import org.apache.olingo.commons.api.data.ContextURL;
 import org.apache.olingo.commons.api.data.Entity;
@@ -44,7 +45,7 @@ public class DefaultReferenceProcessor implements ReferenceProcessor, ReferenceC
 
 
     @Autowired
-    private Storage storage;
+    private PersistenceDataService persistenceDataService;
 
     @Override
     public void readReference(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType responseFormat) throws ODataApplicationException, SerializerException {
@@ -54,36 +55,7 @@ public class DefaultReferenceProcessor implements ReferenceProcessor, ReferenceC
     @Override
     public void createReference(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType requestFormat) throws ODataApplicationException, DeserializerException {
 
-        List<UriResource> resourcePaths = uriInfo.getUriResourceParts();
-        UriResourceEntitySet uriResourceEntitySet = (UriResourceEntitySet) resourcePaths.get(0);
-        UriResourceNavigation uriResourceNavigation = (UriResourceNavigation) resourcePaths.get(1);
-
-        EdmEntitySet edmEntitySet = uriResourceEntitySet.getEntitySet();
-        EdmEntityType edmEntityType = edmEntitySet.getEntityType();
-
-        InputStream requestInputStream = request.getBody();
-        ODataFormat requestODataFormat = ODataFormat.fromContentType(requestFormat);
-        ODataDeserializer deserializer = this.odata.createDeserializer(requestODataFormat);
-        DeserializerResult result = deserializer.entityReferences(requestInputStream);
-
-
-        List<UriParameter> keyPredicates = uriResourceEntitySet.getKeyPredicates();
-
-        EdmNavigationProperty edmNavigationProperty = edmEntityType.getNavigationProperty(uriResourceNavigation.getProperty().getName());
-
-
-        List<UriInfo> bindingLinks = new ArrayList<UriInfo>();
-        int rawBaseUriIndex = request.getRawBaseUri().length();
-        for (URI uri : result.getEntityReferences()) {
-            try {
-                UriInfo refUriInfo = new Parser().parseUri(uri.toString().substring(rawBaseUriIndex), null, null, serviceMetadata.getEdm());
-                bindingLinks.add(refUriInfo);
-            } catch (UriParserException e) {
-                e.printStackTrace();
-            }
-        }
-
-        storage.updateEntityNavigationLinks(edmEntitySet, keyPredicates, uriResourceNavigation.getProperty().getName(), bindingLinks, HttpMethod.PUT);
+        persistenceDataService.createReference(uriInfo, request, odata, serviceMetadata);
 
         response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
     }
@@ -102,7 +74,7 @@ public class DefaultReferenceProcessor implements ReferenceProcessor, ReferenceC
 
         EdmEntitySet edmEntitySet = uriResourceEntitySet.getEntitySet();
         EdmEntityType edmEntityType = edmEntitySet.getEntityType();
-        storage.updateEntityNavigationLinks(edmEntitySet, uriResourceEntitySet.getKeyPredicates(), uriResourceNavigation.getProperty().getName(), new ArrayList(), HttpMethod.PUT);
+        // storage.updateEntityNavigationLinks(edmEntitySet, uriResourceEntitySet.getKeyPredicates(), uriResourceNavigation.getProperty().getName(), new ArrayList(), HttpMethod.PUT);
         response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
     }
 
@@ -132,7 +104,7 @@ public class DefaultReferenceProcessor implements ReferenceProcessor, ReferenceC
 
         // 2nd: fetch the data from backend for this requested EntitySetName
         // it has to be delivered as EntitySet object
-        Map entitySetMap = storage.readEntityNavigationLinks(edmEntitySet, uriResourceEntitySet.getKeyPredicates());
+        Map entitySetMap = null;//storage.readEntityNavigationLinks(edmEntitySet, uriResourceEntitySet.getKeyPredicates());
         String refKey = uriResourceNavigation.getProperty().getName();
         EntityCollection entitySet = new EntityCollection();
         if (entitySetMap.containsKey(refKey)) {

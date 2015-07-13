@@ -45,41 +45,41 @@ public class DefaultPrimitiveProcessor implements PrimitiveProcessor, PrimitiveC
 
     private void read(ODataResponse response, UriInfo uriInfo, ContentType responseFormat, boolean isCollection) throws ODataApplicationException, SerializerException {
 
-        EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
-        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
-        EdmProperty edmProperty = UriInfoUtils.EdmProperty(uriInfo);
-        String edmPropertyName = edmProperty.getName();
-        EdmPrimitiveType edmPropertyType = (EdmPrimitiveType) edmProperty.getType();
-
-
-        Entity entity = storage.readEntityData(edmEntitySet, keyPredicates, new ExpandOptionImpl());
-        if (entity == null)
-            throw new ODataApplicationException("Entity not found", HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.ROOT);
-
-
-        Property property = entity.getProperty(edmPropertyName);
-        if (property == null)
-            throw new ODataApplicationException("Property not found", HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.ROOT);
-
-
-        Object value = property.getValue();
-        if (value == null)
-            response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
-
-
-        ODataFormat format = ODataFormat.fromContentType(responseFormat);
-        ODataSerializer serializer = odata.createSerializer(format);
-
-        ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).navOrPropertyPath(edmPropertyName).build();
-        PrimitiveSerializerOptions options = PrimitiveSerializerOptions.with().contextURL(contextUrl).build();
-        SerializerResult serializerResult = isCollection
-                ? serializer.primitiveCollection(edmPropertyType, property, options)
-                : serializer.primitive(edmPropertyType, property, options);
-
-        InputStream propertyStream = serializerResult.getContent();
-        response.setContent(propertyStream);
-        response.setStatusCode(HttpStatusCode.OK.getStatusCode());
-        response.setHeader(HttpHeader.CONTENT_TYPE, responseFormat.toContentTypeString());
+//        EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
+////        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
+////        EdmProperty edmProperty = UriInfoUtils.EdmProperty(uriInfo);
+////        String edmPropertyName = edmProperty.getName();
+//        EdmPrimitiveType edmPropertyType = (EdmPrimitiveType) edmProperty.getType();
+////
+//
+//        Entity entity = storage.readEntityData(edmEntitySet, keyPredicates, new ExpandOptionImpl());
+//        if (entity == null)
+//            throw new ODataApplicationException("Entity not found", HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.ROOT);
+//
+//
+//        Property property = entity.getProperty(edmPropertyName);
+//        if (property == null)
+//            throw new ODataApplicationException("Property not found", HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.ROOT);
+//
+//
+//        Object value = property.getValue();
+//        if (value == null)
+//            response.setStatusCode(HttpStatusCode.NO_CONTENT.getStatusCode());
+//
+//
+//        ODataFormat format = ODataFormat.fromContentType(responseFormat);
+//        ODataSerializer serializer = odata.createSerializer(format);
+//
+//        ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).navOrPropertyPath(edmPropertyName).build();
+//        PrimitiveSerializerOptions options = PrimitiveSerializerOptions.with().contextURL(contextUrl).build();
+//        SerializerResult serializerResult = isCollection
+//                ? serializer.primitiveCollection(edmPropertyType, property, options)
+//                : serializer.primitive(edmPropertyType, property, options);
+//
+//        InputStream propertyStream = serializerResult.getContent();
+//        response.setContent(propertyStream);
+//        response.setStatusCode(HttpStatusCode.OK.getStatusCode());
+//        response.setHeader(HttpHeader.CONTENT_TYPE, responseFormat.toContentTypeString());
 
     }
 

@@ -48,15 +48,15 @@ public class PersistenceJsonSerializer {
     private static final Logger log = LoggerFactory.getLogger(PersistenceJsonSerializer.class);
 
 
-    public String getKeyPredicates( final EdmEntityType entityType, final Entity entity) throws JsonProcessingException {
+    public Map getKeyPredicates(final EdmEntityType entityType, final Entity entity) {
 
         Map<String, Object> map = new HashMap<>();
         for (EdmKeyPropertyRef edmKeyPropertyRef : entityType.getKeyPropertyRefs()) {
             Property property = entity.getProperty(edmKeyPropertyRef.getProperty().getName());
             map.put(edmKeyPropertyRef.getProperty().getName(), property.getValue());
         }
-        ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.writeValueAsString(map);
+
+        return map;
     }
 
     public InputStream entity(final ServiceMetadata metadata, final EdmEntityType entityType,

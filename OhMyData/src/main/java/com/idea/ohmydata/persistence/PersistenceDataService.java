@@ -14,7 +14,7 @@ import org.apache.olingo.server.core.uri.UriInfoImpl;
 
 public interface PersistenceDataService {
 
-    EntityCollection readEntityCollection(UriInfo uriInfo) throws ODataApplicationException;
+    EntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     int countEntityCollection(UriInfo uriInfo) throws ODataApplicationException;
 
@@ -25,5 +25,8 @@ public interface PersistenceDataService {
     void updateEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     void deleteEntity(UriInfo uriInfo) throws ODataApplicationException;
+
+
+    void createReference(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
 }

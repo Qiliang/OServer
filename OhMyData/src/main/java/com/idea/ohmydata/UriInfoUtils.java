@@ -71,23 +71,18 @@ public class UriInfoUtils {
         return responseExpandOption;
     }
 
-    public static String getOrderBy(UriInfo uriInfo) throws ODataApplicationException {
+    public static String getOrderBy(OrderByOption orderByOption) throws ODataApplicationException {
         String orderBy = StringUtils.EMPTY;
-        Collection<SystemQueryOption> systemQueryOptions = uriInfo.getSystemQueryOptions();
-        for (SystemQueryOption systemQueryOption : systemQueryOptions) {
-            if (systemQueryOption.getKind().equals(SystemQueryOptionKind.ORDERBY)) {
-
-                OrderByOption orderByOption = (OrderByOption) systemQueryOption;
-                FilterVisitor filterVisitor = new FilterVisitor();
-                for (OrderByItem orderByItem : orderByOption.getOrders()) {
-                    orderBy += filterVisitor.visit(orderByItem.getExpression()).toString();
-                    if (orderByItem.isDescending()) orderBy += " desc,";
-                    else orderBy += " asc,";
-                }
-                if (orderBy != null)
-                    orderBy = "order by" + orderBy.substring(0, orderBy.length() - 1);
-            }
+        if (orderByOption == null) return orderBy;
+        FilterVisitor filterVisitor = new FilterVisitor();
+        for (OrderByItem orderByItem : orderByOption.getOrders()) {
+            orderBy += filterVisitor.visit(orderByItem.getExpression()).toString();
+            if (orderByItem.isDescending()) orderBy += " desc,";
+            else orderBy += " asc,";
         }
+        if (StringUtils.isNotEmpty(orderBy))
+            orderBy = "order by" + orderBy.substring(0, orderBy.length() - 1);
+
         return orderBy;
     }
 
@@ -104,40 +99,41 @@ public class UriInfoUtils {
         return StringUtils.EMPTY;
     }
 
-    public static int getSkip(UriInfo uriInfo) {
-        int skip = -1;
-        Collection<SystemQueryOption> systemQueryOptions = uriInfo.getSystemQueryOptions();
-        for (SystemQueryOption systemQueryOption : systemQueryOptions) {
-            if (systemQueryOption.getKind().equals(SystemQueryOptionKind.SKIP)) {
-                SkipOption skipOption = (SkipOption) systemQueryOption;
-                skip = skipOption.getValue();
-            }
-        }
-        return skip;
-    }
+//    public static int getSkip(UriInfo uriInfo) {
+//        int skip = -1;
+//        Collection<SystemQueryOption> systemQueryOptions = uriInfo.getSystemQueryOptions();
+//        for (SystemQueryOption systemQueryOption : systemQueryOptions) {
+//            if (systemQueryOption.getKind().equals(SystemQueryOptionKind.SKIP)) {
+//                SkipOption skipOption = (SkipOption) systemQueryOption;
+//                skip = skipOption.getValue();
+//            }
+//        }
+//        return skip;
+//    }
+//
+//
+//    public static int getTop(UriInfo uriInfo) {
+//        int top = -1;
+//        Collection<SystemQueryOption> systemQueryOptions = uriInfo.getSystemQueryOptions();
+//        for (SystemQueryOption systemQueryOption : systemQueryOptions) {
+//            if (systemQueryOption.getKind().equals(SystemQueryOptionKind.TOP)) {
+//                TopOption topOption = (TopOption) systemQueryOption;
+//                top = topOption.getValue();
+//            }
+//        }
+//        return top;
+//    }
 
+//
+//    public static List<UriParameter> getKeyPredicates(UriInfo uriInfo) {
+//        List<UriResource> resourceParts = uriInfo.getUriResourceParts();
+//        UriResourceEntitySet uriEntityset = (UriResourceEntitySet) resourceParts.get(0);
+//        return uriEntityset.getKeyPredicates();
+//    }
 
-    public static int getTop(UriInfo uriInfo) {
-        int top = -1;
-        Collection<SystemQueryOption> systemQueryOptions = uriInfo.getSystemQueryOptions();
-        for (SystemQueryOption systemQueryOption : systemQueryOptions) {
-            if (systemQueryOption.getKind().equals(SystemQueryOptionKind.TOP)) {
-                TopOption topOption = (TopOption) systemQueryOption;
-                top = topOption.getValue();
-            }
-        }
-        return top;
-    }
-
-    public static List<UriParameter> getKeyPredicates(UriInfo uriInfo) {
-        List<UriResource> resourceParts = uriInfo.getUriResourceParts();
-        UriResourceEntitySet uriEntityset = (UriResourceEntitySet) resourceParts.get(0);
-        return uriEntityset.getKeyPredicates();
-    }
-
-    public static EdmProperty EdmProperty(UriInfo uriInfo) {
-        List<UriResource> resourceParts = uriInfo.getUriResourceParts();
-        UriResourceProperty uriProperty = (UriResourceProperty) resourceParts.get(resourceParts.size() - 1);
-        return uriProperty.getProperty();
-    }
+//    public static EdmProperty EdmProperty(UriInfo uriInfo) {
+//        List<UriResource> resourceParts = uriInfo.getUriResourceParts();
+//        UriResourceProperty uriProperty = (UriResourceProperty) resourceParts.get(resourceParts.size() - 1);
+//        return uriProperty.getProperty();
+//    }
 }
