@@ -103,8 +103,13 @@ class PostgresDataService implements PersistenceDataService {
         List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
 
         UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
-        if (uriInfoContext.getEdmNavigationProperty() == null) {
-            return readEntitySetData(uriInfoContext.getEdmEntitySet(), uriInfoResource, odata, serviceMetadata);
+        if (uriInfoContext.getEdmNavigationProperty() != null) {
+            EdmNavigationProperty edmNavigationProperty = uriInfoContext.getEdmNavigationProperty();
+
+            Link bindingLink = uriInfoContext.getRefEntity().getNavigationLink(edmNavigationProperty.getName());
+
+            EdmEntitySet refEdmEntitySet = getNavigationPropertyBindingSet(edmNavigationProperty.getName(), uriInfoContext.getRefEdmEntitySet(), serviceMetadata);
+            return readEntitySetData(refEdmEntitySet, -1, -1,    whereIds(bindingLink.getInlineEntitySet()), "", new ExpandOptionImpl(), odata, serviceMetadata);
         } else {
             return readEntitySetData(uriInfoContext.getEdmEntitySet(), uriInfoResource, odata, serviceMetadata);
         }
@@ -153,9 +158,6 @@ class PostgresDataService implements PersistenceDataService {
 
         UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
         return uriInfoContext.refEntity;
-
-//        Map row = getEntityRow(uriInfoContext.getEdmEntitySet(), where(uriInfoContext.getEdmEntitySet(), uriInfoContext.getKeyParams()));
-//        return getEntity(uriInfoContext.getEdmEntitySet(), row, uriInfoResource.getExpandOption(), odata, serviceMetadata);
     }
 
     private Entity getEntity(EdmEntitySet edmEntitySet, List<UriParameter> keyParameters, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
@@ -463,6 +465,21 @@ class PostgresDataService implements PersistenceDataService {
             String value = keyParam.getText().replaceAll("'", "");
             sqlBuilder.append(" and data->>'").append(keyParam.getName()).append("' =  '").append(value).append("'");
         }
+    }
+
+    private String whereIds(EntityCollection entityCollection) {
+        List<String> entityConditions = new ArrayList<String>();
+        for (Entity entity : entityCollection.getEntities()) {
+            List<String> keyConditions = new ArrayList<String>();
+            for (Property property : entity.getProperties()) {
+                keyConditions.add("data->>'" + property.getName() + "' =  '" + property.getValue() + "'");
+            }
+            entityConditions.add(" ( " + String.join(" and ", keyConditions) + " )");
+
+        }
+
+        return String.join(" or ", entityConditions);
+
     }
 
     private String whereIds(List<Map> keyMapList) {
