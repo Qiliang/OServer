@@ -29,6 +29,7 @@ public class DefaultEdmProvider extends CsdlAbstractEdmProvider {
         } catch (SAXException e) {
             throw new ODataException(e);
         }
+
     }
 
     @Override

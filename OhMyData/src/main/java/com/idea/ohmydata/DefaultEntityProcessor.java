@@ -9,6 +9,7 @@ import org.apache.olingo.commons.api.data.ValueType;
 import org.apache.olingo.commons.api.edm.EdmEntitySet;
 import org.apache.olingo.commons.api.edm.EdmEntityType;
 import org.apache.olingo.commons.api.edm.EdmProperty;
+import org.apache.olingo.commons.api.edm.FullQualifiedName;
 import org.apache.olingo.commons.api.format.ContentType;
 import org.apache.olingo.commons.api.format.ODataFormat;
 import org.apache.olingo.commons.api.http.HttpHeader;
@@ -58,12 +59,10 @@ public class DefaultEntityProcessor implements EntityProcessor {
         ExpandOption responseExpandOption = UriInfoUtils.getExpand(uriInfo);
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
         SelectOption selectOption = UriInfoUtils.getSelect(uriInfo);
-//        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
 
         Entity entity = persistenceDataService.readEntity(uriInfo, odata, serviceMetadata);
 
-        EdmEntityType entityType = edmEntitySet.getEntityType();
-
+        EdmEntityType entityType = serviceMetadata.getEdm().getEntityType(new FullQualifiedName(entity.getType()));
         ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).suffix(ContextURL.Suffix.ENTITY).build();
 
         EntitySerializerOptions options = EntitySerializerOptions.with().contextURL(contextUrl).select(selectOption).expand(responseExpandOption).build();
@@ -81,7 +80,6 @@ public class DefaultEntityProcessor implements EntityProcessor {
     public void createEntity(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType requestFormat, ContentType responseFormat) throws ODataApplicationException, DeserializerException, SerializerException {
 
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
-        EdmEntityType edmEntityType = edmEntitySet.getEntityType();
 
         //写入数据
         Entity createdEntity = persistenceDataService.createEntity(uriInfo, request, odata, serviceMetadata);
@@ -92,6 +90,7 @@ public class DefaultEntityProcessor implements EntityProcessor {
         ODataFormat oDataFormat = ODataFormat.fromContentType(responseFormat);
         ODataSerializer serializer = this.odata.createSerializer(oDataFormat);
 
+        EdmEntityType edmEntityType = serviceMetadata.getEdm().getEntityType(new FullQualifiedName(createdEntity.getType()));
         SerializerResult serializedResponse = serializer.entity(serviceMetadata, edmEntityType, createdEntity, options);
 
         response.setContent(serializedResponse.getContent());

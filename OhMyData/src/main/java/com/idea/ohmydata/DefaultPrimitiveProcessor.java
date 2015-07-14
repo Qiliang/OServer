@@ -45,7 +45,7 @@ public class DefaultPrimitiveProcessor implements PrimitiveProcessor, PrimitiveC
 
     private void read(ODataResponse response, UriInfo uriInfo, ContentType responseFormat, boolean isCollection) throws ODataApplicationException, SerializerException {
 
-//        EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
+//        EdmEntitySet edmEntitySet = UriInfoUtils.getEntitySet(uriInfo);
 ////        List<UriParameter> keyPredicates = UriInfoUtils.getKeyPredicates(uriInfo);
 ////        EdmProperty edmProperty = UriInfoUtils.EdmProperty(uriInfo);
 ////        String edmPropertyName = edmProperty.getName();

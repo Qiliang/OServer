@@ -187,7 +187,7 @@ public class DefaultEdmxParser {
         p.setName(attributes.getString("Name"));
         setType(attributes.getString("Type"), p);
         p.setPartner(attributes.getString("Partner"));
-
+        p.setContainsTarget(attributes.getBoolean("ContainsTarget"));
         p.setNullable(attributes.getBoolean("Nullable", true));
         for (int i = 0; i < node.getChildNodes().getLength(); i++) {
             Node child = node.getChildNodes().item(i);

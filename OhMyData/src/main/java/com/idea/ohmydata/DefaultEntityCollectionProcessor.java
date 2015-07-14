@@ -1,5 +1,6 @@
 package com.idea.ohmydata;
 
+import com.idea.ohmydata.persistence.DbEntityCollection;
 import com.idea.ohmydata.persistence.PersistenceDataService;
 import com.idea.ohmydata.persistence.Storage;
 import org.apache.commons.io.IOUtils;
@@ -42,27 +43,21 @@ public class DefaultEntityCollectionProcessor implements EntityCollectionProcess
 
     public void readEntityCollection(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType responseFormat) throws ODataApplicationException, SerializerException {
 
-
-        uriInfo.asUriInfoResource().getTopOption();
-
         EdmEntitySet edmEntitySet = UriInfoUtils.getEdmEntitySet(uriInfo);
-        SelectOption selectOption = UriInfoUtils.getSelect(uriInfo);
 
-        EntityCollection entitySet = persistenceDataService.readEntityCollection(uriInfo, odata, serviceMetadata);
-
+        DbEntityCollection entitySet = persistenceDataService.readEntityCollection(uriInfo, odata, serviceMetadata);
         ODataFormat format = ODataFormat.fromContentType(responseFormat);
         ODataSerializer serializer = odata.createSerializer(format);
+        // EdmEntityType edmEntityType = entitySet.getEntities().size() > 0 ? entitySet.getEntities().get(0).get: edmEntitySet.getEntityType();
 
-
-        EdmEntityType edmEntityType = edmEntitySet.getEntityType();
         ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).serviceRoot(URI.create(request.getRawBaseUri() + "/")).build();
 
         EntityCollectionSerializerOptions opts = EntityCollectionSerializerOptions.with()
                 .contextURL(contextUrl)
                 .expand(uriInfo.asUriInfoResource().getExpandOption())
-                .select(selectOption)
+                .select(uriInfo.asUriInfoResource().getSelectOption())
                 .build();
-        SerializerResult serializedContent = serializer.entityCollection(serviceMetadata, edmEntityType, entitySet, opts);
+        SerializerResult serializedContent = serializer.entityCollection(serviceMetadata, entitySet.getEntityType(), entitySet.getEntityCollection(), opts);
 
         response.setContent(serializedContent.getContent());
         response.setStatusCode(HttpStatusCode.OK.getStatusCode());

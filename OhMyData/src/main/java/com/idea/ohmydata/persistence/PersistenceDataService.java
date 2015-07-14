@@ -14,7 +14,7 @@ import org.apache.olingo.server.core.uri.UriInfoImpl;
 
 public interface PersistenceDataService {
 
-    EntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
+    DbEntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     int countEntityCollection(UriInfo uriInfo) throws ODataApplicationException;
 

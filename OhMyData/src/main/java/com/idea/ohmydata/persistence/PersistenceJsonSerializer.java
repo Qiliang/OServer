@@ -372,8 +372,10 @@ public class PersistenceJsonSerializer {
                 || type == EdmPrimitiveTypeFactory.getInstance(EdmPrimitiveTypeKind.SByte)
                 || type == EdmPrimitiveTypeFactory.getInstance(EdmPrimitiveTypeKind.Single)) {
             json.writeNumber(value);
-        } else {
+        }else if(type instanceof EdmEnumType){
             json.writeString(primitiveValue.toString());
+        } else {
+            json.writeString(value);
         }
     }
 
