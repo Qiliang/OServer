@@ -4,10 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.idea.ohmydata.ODataServlet;
 import com.idea.ohmydata.UriInfoUtils;
-import com.idea.ohmydata.persistence.DbEntityCollection;
-import com.idea.ohmydata.persistence.PersistenceDataService;
-import com.idea.ohmydata.persistence.PersistenceJsonSerializer;
+import com.idea.ohmydata.persistence.*;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.AutoCloseInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.olingo.commons.api.data.*;
 import org.apache.olingo.commons.api.edm.*;
@@ -31,13 +30,20 @@ import org.apache.olingo.server.core.uri.parser.UriParserException;
 import org.apache.olingo.server.core.uri.queryoption.ExpandOptionImpl;
 import org.postgresql.util.PGobject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -56,73 +62,99 @@ class PostgresDataService implements PersistenceDataService {
     @Override
     @Transactional
     public void createReference(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
-        UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
-        List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
-        try {
-            UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
-            ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-            DeserializerResult result = deserializer.entityReferences(request.getBody());
-
-
-            List<Map> propertyJsonList = new ArrayList<>();
-            int rawBaseUriIndex = request.getRawBaseUri().length();
-            List<List<UriParameter>> uriParameterList = new ArrayList<>();
-            for (URI uri : result.getEntityReferences()) {
-                UriInfo refUriInfo = new Parser().parseUri(uri.toString().substring(rawBaseUriIndex), null, null, serviceMetadata.getEdm());
-                UriInfoContext refContext = getUriInfoContext(odata, serviceMetadata, refUriInfo.getUriResourceParts());
-                Map propertyMap = new HashMap<>();
-                for (UriParameter uriParameter : refContext.getKeyParams()) {
-                    propertyMap.put(uriParameter.getName(), uriParameter.getText().replace("'", StringUtils.EMPTY));
-                }
-                propertyJsonList.add(propertyMap);
-
-            }
-
-            Map propertyJsonMap = new HashMap<>();
-            propertyJsonMap.put(uriInfoContext.getEdmNavigationProperty().getName(), propertyJsonList);
-            updateNavigationProperty(uriInfoContext.getPreEntitySet(), uriInfoContext.getKeyParams(), propertyJsonMap);
-
-        } catch (SerializerException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } catch (SQLException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } catch (UriParserException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
-        } catch (DeserializerException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
-        } catch (IOException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } finally {
-
-        }
+//        UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
+//        List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
+//        try {
+//            UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
+//            ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
+//            DeserializerResult result = deserializer.entityReferences(request.getBody());
+//
+//
+//            List<Map> propertyJsonList = new ArrayList<>();
+//            int rawBaseUriIndex = request.getRawBaseUri().length();
+//            List<List<UriParameter>> uriParameterList = new ArrayList<>();
+//            for (URI uri : result.getEntityReferences()) {
+//                UriInfo refUriInfo = new Parser().parseUri(uri.toString().substring(rawBaseUriIndex), null, null, serviceMetadata.getEdm());
+//                UriInfoContext refContext = getUriInfoContext(odata, serviceMetadata, refUriInfo.getUriResourceParts());
+//                Map propertyMap = new HashMap<>();
+//                for (UriParameter uriParameter : refContext.getKeyParams()) {
+//                    propertyMap.put(uriParameter.getName(), uriParameter.getText().replace("'", StringUtils.EMPTY));
+//                }
+//                propertyJsonList.add(propertyMap);
+//
+//            }
+//
+//            Map propertyJsonMap = new HashMap<>();
+//            propertyJsonMap.put(uriInfoContext.getEdmNavigationProperty().getName(), propertyJsonList);
+//            updateNavigationProperty(uriInfoContext.getPreEntitySet(), uriInfoContext.getKeyParams(), propertyJsonMap);
+//
+//        } catch (SerializerException e) {
+//            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
+//        } catch (SQLException e) {
+//            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
+//        } catch (UriParserException e) {
+//            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
+//        } catch (DeserializerException e) {
+//            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
+//        } catch (IOException e) {
+//            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
+//        } finally {
+//
+//        }
     }
 
 
     @Override
     public DbEntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
-        UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
-        List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
         DbEntityCollection dbEntityCollection = new DbEntityCollection();
-        UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
-        if (uriInfoContext.getEdmNavigationProperty() != null) {
-            EdmNavigationProperty edmNavigationProperty = uriInfoContext.getEdmNavigationProperty();
-            dbEntityCollection.setEntityType(edmNavigationProperty.getType());
-            Link bindingLink = uriInfoContext.getEntity().getNavigationLink(edmNavigationProperty.getName());
-            if (edmNavigationProperty.containsTarget()) {
-                if (bindingLink != null)
-                    dbEntityCollection.setEntityCollection(bindingLink.getInlineEntitySet());
-                else
-                    dbEntityCollection.setEntityCollection(bindingLink.getInlineEntitySet());
-            } else {
-                EdmEntitySet edmEntitySet = getNavigationPropertyBindingSet(edmNavigationProperty.getName(), uriInfoContext.getPreEntitySet(), serviceMetadata);
-                dbEntityCollection.setEntityCollection(readEntitySetData(edmEntitySet, uriInfoResource, whereIds(bindingLink.getInlineEntitySet()), odata, serviceMetadata));
-            }
+        UriInfoContext ctx = getUriInfoContext(odata, serviceMetadata, uriInfo);
 
+        if (ctx.edmNavigationProperty != null) {
+            //"select t.data from (select data from entity where type='@ref') ref inner join (select data from entity where type<>'@ref') t on (ref.data->'Friends'->'source'->'UserName' = t.data->'UserName')"
+            JsonCollection jsonObjs = retrieveEntityCollection(ctx.getEntityType(), uriInfo.asUriInfoResource(), new JsonObj());
+            StringBuffer from = new StringBuffer(255);
+            from.append("(select data from entity where type='@ref' and ").append("\"repositoryId\" ='").append(servlet.getRepositoryId()).append("') ref");
+            from.append(" inner join ");
+            from.append("(select data from entity where type<>'@ref' and ").append("\"repositoryId\" ='").append(servlet.getRepositoryId()).append("') t");
+            from.append(" on ");
+            from.append("ref.data->'").append(ctx.edmNavigationProperty.getName()).append("'->");
+
+            List<String> joinCondition = new ArrayList<>();
+            for (String key : ctx.entity.getKeyObj().keySet()) {
+                joinCondition.add(String.format(key, ctx));
+            }
+           //String.join(" and ",);
+
+            dbEntityCollection.setEntityType(ctx.getEntityType());
+            dbEntityCollection.setEntityCollection(jsonObjs.toEntityCollection(odata));
         } else {
-            dbEntityCollection.setEntityType(uriInfoContext.getEntitySet().getEntityType());
-            dbEntityCollection.setEntityCollection(readEntitySetData(uriInfoContext.getEntitySet(), uriInfoResource, StringUtils.EMPTY, odata, serviceMetadata));
+            JsonCollection jsonObjs = retrieveEntityCollection(ctx.getEntityType(), uriInfo.asUriInfoResource(), new JsonObj());
+            dbEntityCollection.setEntityType(ctx.getEntityType());
+            dbEntityCollection.setEntityCollection(jsonObjs.toEntityCollection(odata));
         }
         return dbEntityCollection;
+    }
+
+    private JsonCollection retrieveEntityCollection(EdmEntityType edmEntityType, UriInfoResource uriInfoResource, JsonObj condition) throws ODataApplicationException {
+        int top = uriInfoResource.getTopOption() == null ? 0 : uriInfoResource.getTopOption().getValue();
+        int skip = uriInfoResource.getSkipOption() == null ? 0 : uriInfoResource.getSkipOption().getValue();
+        String orderBy = UriInfoUtils.getOrderBy(uriInfoResource.getOrderByOption());
+        ExpandOption expandOption = uriInfoResource.getExpandOption() == null ? new ExpandOptionImpl() : uriInfoResource.getExpandOption();
+        StringBuffer sql = new StringBuffer();
+        sql.append("select * from entity where \"repositoryId\" = ").append("'").append(servlet.getRepositoryId()).append("' and type='")
+                .append(edmEntityType.getFullQualifiedName().getFullQualifiedNameAsString()).append("'");
+        sql.append(" and ( ").append(condition.toSQL()).append(" )");
+        sql.append(orderBy);
+        if (top > 0) sql.append(" limit ").append(top);
+        if (skip > 0) sql.append(" offset ").append(skip);
+
+        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql.toString());
+        JsonCollection entityCollection = new JsonCollection();
+        for (Map<String, Object> row : result) {
+            entityCollection.add(retrieveEntity(edmEntityType, expandOption, (PGobject) row.get("data")));
+        }
+        return entityCollection;
+
     }
 
     private EntityCollection readEntitySetData(EdmEntitySet edmEntitySet, UriInfoResource uriInfoResource, String sql, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
@@ -161,13 +193,8 @@ class PostgresDataService implements PersistenceDataService {
 
     @Override
     public Entity readEntity(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
-        UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
-        List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
-
-        UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
-        if (uriInfoContext.getEntity() == null)
-            throw new ODataApplicationException("Entity not found", HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.getDefault());
-        return uriInfoContext.getEntity();
+        UriInfoContext ctx = getUriInfoContext(odata, serviceMetadata, uriInfo);
+        return ctx.entity.toEntity(odata);
     }
 
     private Entity getEntity(EdmEntitySet edmEntitySet, List<UriParameter> keyParameters, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
@@ -230,126 +257,123 @@ class PostgresDataService implements PersistenceDataService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = ODataApplicationException.class)
     public Entity createEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
-        InputStream jsonStream = null;
+
         try {
-            UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
-            List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
-
-            UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
-            Entity entity = uriInfoContext.getEntity();
-            EdmNavigationProperty edmNavigationProperty = uriInfoContext.getEdmNavigationProperty();
-            if (edmNavigationProperty != null) {
-                if (edmNavigationProperty.containsTarget()) {
-                    EdmEntitySet edmEntitySet = uriInfoContext.getPreEntitySet();
-                    Link innerLink = entity.getNavigationLink(edmNavigationProperty.getName());
-                    InputStream requestInputStream = request.getBody();
-                    ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-                    DeserializerResult result = deserializer.entity(requestInputStream, edmNavigationProperty.getType());
-                    Entity requestEntity = result.getEntity();
-                    jsonStream = serializer.entity(serviceMetadata, edmNavigationProperty.getType(), requestEntity, EntitySerializerOptions.with().build());
-                    if (entity != null) {//添加引用关系
-                        ObjectMapper mapper = new ObjectMapper();
-                        Map navigationMap = new HashMap<>();
-                        final InputStream finalJsonStream = jsonStream;
-                        navigationMap.put(uriInfoContext.getEdmNavigationProperty().getName(), new ArrayList() {{
-                            add(mapper.readValue(finalJsonStream, Map.class));
-                        }});
-                        updateNavigationProperty(uriInfoContext.getPreEntitySet(), uriInfoContext.getKeyParams(), navigationMap);
-                    }
-                    return requestEntity;
-                } else {
-                    EdmEntitySet edmEntitySet = uriInfoContext.getEntitySet();
-                    InputStream requestInputStream = request.getBody();
-                    ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-                    DeserializerResult result = deserializer.entity(requestInputStream, edmEntitySet.getEntityType());
-                    Entity requestEntity = result.getEntity();
-                    jsonStream = serializer.entity(serviceMetadata, edmEntitySet.getEntityType(), requestEntity, EntitySerializerOptions.with().build());
-
-                    PGobject jsonObject = new PGobject();
-                    jsonObject.setType("jsonb");
-                    jsonObject.setValue(IOUtils.toString(jsonStream));
-                    jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"name\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), edmEntitySet.getName(), jsonObject);
-                    if (entity != null) {//添加引用关系
-                        Map refKeyPredicates = serializer.getKeyPredicates(edmEntitySet.getEntityType(), requestEntity);
-                        Map navigationMap = new HashMap<>();
-                        navigationMap.put(uriInfoContext.getEdmNavigationProperty().getName(), new ArrayList() {{
-                            add(refKeyPredicates);
-                        }});
-                        updateNavigationProperty(uriInfoContext.getPreEntitySet(), uriInfoContext.getKeyParams(), navigationMap);
-                    }
-                    return requestEntity;
-
-                }
-            } else {
-
-                EdmEntitySet edmEntitySet = uriInfoContext.getEntitySet();
-                InputStream requestInputStream = request.getBody();
-                ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-                DeserializerResult result = deserializer.entity(requestInputStream, edmEntitySet.getEntityType());
-                Entity requestEntity = result.getEntity();
-                jsonStream = serializer.entity(serviceMetadata, edmEntitySet.getEntityType(), requestEntity, EntitySerializerOptions.with().build());
-
-                PGobject jsonObject = new PGobject();
-                jsonObject.setType("jsonb");
-                jsonObject.setValue(IOUtils.toString(jsonStream));
-                jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"name\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), edmEntitySet.getName(), jsonObject);
-                return requestEntity;
+            UriInfoContext ctx = getUriInfoContext(odata, serviceMetadata, uriInfo);
+            EdmEntitySet edmEntitySet = ctx.entitySet;
+            EdmNavigationProperty edmNavigationProperty = ctx.edmNavigationProperty;
+            byte[] content = IOUtils.toByteArray(new AutoCloseInputStream(request.getBody()));
+            EdmEntityType edmEntityType = edmNavigationProperty != null ? edmNavigationProperty.getType() : edmEntitySet.getEntityType();
+            JsonObj entity = JsonObj.parse(content);
+            entity.setEdmEntityType(edmEntityType);
+            createEntity(edmEntityType, content);
+            if (ctx.entity != null) {
+                createRef(edmNavigationProperty, ctx.entity.getKeyObj(), entity.getKeyObj());
             }
-
+            ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
+            return deserializer.entity(toInputStream(content), edmEntityType).getEntity();
 
         } catch (DeserializerException e) {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
-        } catch (SerializerException e) {
+        } catch (Exception e) {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } catch (IOException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } catch (SQLException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
-        } finally {
-            IOUtils.closeQuietly(jsonStream);
         }
     }
 
-    private UriInfoContext getUriInfoContext(OData odata, ServiceMetadata serviceMetadata, List<UriResource> uriResources) throws ODataApplicationException {
+    private InputStream toInputStream(byte[] content) {
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(content);
+        return new AutoCloseInputStream(inputStream);
+    }
+
+    private void createEntity(EdmEntityType edmEntityType, byte[] content) throws ODataApplicationException {
+        PGobject jsonObject = new PGobject();
+        jsonObject.setType("jsonb");
+        try {
+            jsonObject.setValue(new String(content));
+        } catch (SQLException e) {
+            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault(), e);
+        }
+        jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"type\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), edmEntityType.getFullQualifiedName().getFullQualifiedNameAsString(), jsonObject);
+    }
+
+    private void createRef(EdmNavigationProperty edmNavigationProperty, JsonObj source, JsonObj target) throws ODataApplicationException {
+
+        JsonObj data = new JsonObj();
+        data.put("source", source);
+        data.put("target", source);
+        JsonObj ref = new JsonObj();
+        ref.put(edmNavigationProperty.getName(), data);
+        PGobject jsonObject = new PGobject();
+        jsonObject.setType("jsonb");
+        try {
+            jsonObject.setValue(ref.toJson());
+        } catch (SQLException e) {
+            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault(), e);
+        }
+        jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"type\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), "@ref", jsonObject);
+    }
+
+    private JsonObj retrieveEntity(EdmEntityType edmEntityType, JsonObj condition) throws ODataApplicationException {
+        return retrieveEntity(edmEntityType, condition, new ExpandOptionImpl());
+    }
+
+    private JsonObj retrieveEntity(EdmEntityType edmEntityType, JsonObj condition, ExpandOption expandOption) throws ODataApplicationException {
+
+        StringBuffer sql = new StringBuffer("select * from entity ");
+        sql.append("where \"repositoryId\"='").append(servlet.getRepositoryId()).append("' ");
+        sql.append(" and (").append(condition.getKeyObj().toSQL()).append(")");
+        List<Map<String, Object>> resultSet = jdbcTemplate.queryForList(sql.toString());
+        if (resultSet.size() == 0)
+            throw new ODataApplicationException("Entity Not Found", HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
+
+        return retrieveEntity(edmEntityType, expandOption, (PGobject) resultSet.get(0).get("data"));
+    }
+
+    private JsonObj retrieveEntity(EdmEntityType edmEntityType, ExpandOption expandOption, PGobject pGobject) throws ODataApplicationException {
+        JsonObj entityObj = JsonObj.parse(pGobject.getValue());
+        entityObj.setEdmEntityType(edmEntityType);
+        for (ExpandItem expandItem : expandOption.getExpandItems()) {
+            UriResourceNavigation uriResourceNavigation = (UriResourceNavigation) expandItem.getResourcePath().getUriResourceParts().get(0);
+            EdmNavigationProperty edmNavigationProperty = uriResourceNavigation.getProperty();
+            JsonObj expandCondition = new JsonObj();
+            expandCondition.setEdmEntityType(edmNavigationProperty.getType());
+            expandCondition.put("@from", entityObj.getKeyObj());
+            List<JsonObj> jsonObjList = retrieveEntityCollection(edmNavigationProperty.getType(), expandItem.getResourcePath(), expandCondition);
+            if (edmNavigationProperty.isCollection()) {
+                entityObj.put(edmNavigationProperty.getName(), jsonObjList);
+            } else {
+                entityObj.put(edmNavigationProperty.getName(), jsonObjList.get(0));
+            }
+        }
+
+        return entityObj;
+    }
+
+
+    private UriInfoContext getUriInfoContext(OData odata, ServiceMetadata serviceMetadata, UriInfo uriInfo) throws ODataApplicationException {
+        UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
+        List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
         UriInfoContext context = new UriInfoContext();
         for (int i = 0; i < uriResources.size(); i++) {
             UriResource uriResource = uriResources.get(i);
             if (uriResource.getKind() == UriResourceKind.entitySet) {
                 UriResourceEntitySet uriResourceEntitySet = (UriResourceEntitySet) uriResource;
-                context.setPreEntitySet(context.getEntitySet());
-                context.setEntitySet(uriResourceEntitySet.getEntitySet());
+                context.entitySet = uriResourceEntitySet.getEntitySet();
                 if (uriResourceEntitySet.getKeyPredicates() == null || uriResourceEntitySet.getKeyPredicates().size() == 0) {
                     break;
                 }
-                context.setKeyParams(uriResourceEntitySet.getKeyPredicates());
-                context.setEntity(getEntity(uriResourceEntitySet.getEntitySet(), uriResourceEntitySet.getKeyPredicates(), odata, serviceMetadata));
+                context.keyParams = uriResourceEntitySet.getKeyPredicates();
+                context.entity = retrieveEntity(context.entitySet.getEntityType(), JsonObj.parse(context.keyParams).setEdmEntityType(context.entitySet.getEntityType()));
             } else if (uriResource.getKind() == UriResourceKind.navigationProperty) {
                 UriResourceNavigation uriResourceNavigation = (UriResourceNavigation) uriResource;
                 EdmNavigationProperty edmNavigationProperty = uriResourceNavigation.getProperty();
-                context.setEdmNavigationProperty(edmNavigationProperty);
-                context.setPreEntitySet(context.getEntitySet());
-                if (!edmNavigationProperty.containsTarget())
-                    for (EdmNavigationPropertyBinding edmNavigationPropertyBinding : context.getEntitySet().getNavigationPropertyBindings()) {
-                        if (edmNavigationPropertyBinding.getPath().equals(edmNavigationProperty.getName())) {
-                            context.setEntitySet(serviceMetadata.getEdm().getEntityContainer().getEntitySet(edmNavigationPropertyBinding.getTarget()));
-                        }
-                    }
+                context.edmNavigationProperty = edmNavigationProperty;
                 if (uriResourceNavigation.getKeyPredicates() == null || uriResourceNavigation.getKeyPredicates().size() == 0)
                     break;
-                Entity preEntity = context.getEntity();
-                context.setEntity(null);
-                context.setKeyParams(uriResourceNavigation.getKeyPredicates());
-                if (edmNavigationProperty.containsTarget()) {
-                    Link navigationLink = preEntity.getNavigationLink(edmNavigationProperty.getName());
-                    for (Entity entity : navigationLink.getInlineEntitySet().getEntities()) {
-                        if (match(entity, uriResourceNavigation.getKeyPredicates())) context.setEntity(entity);
-                    }
-                } else {
-                    context.setEntity(getEntity(context.getEntitySet(), uriResourceNavigation.getKeyPredicates(), odata, serviceMetadata));
-                }
-
+                context.keyParams = uriResourceNavigation.getKeyPredicates();
+                context.entity = retrieveEntity(context.entitySet.getEntityType(), JsonObj.parse(context.keyParams));
             }
 
         }
@@ -372,10 +396,10 @@ class PostgresDataService implements PersistenceDataService {
         try {
             UriInfoResource uriInfoResource = uriInfo.asUriInfoResource();
             List<UriResource> uriResources = uriInfoResource.getUriResourceParts();
-            UriInfoContext uriInfoContext = getUriInfoContext(odata, serviceMetadata, uriResources);
+            UriInfoContext uriInfoContext = null;// getUriInfoContext(odata, serviceMetadata, uriResources);
 
-            Entity entity = uriInfoContext.getEntity();
-            EdmEntitySet edmEntitySet = uriInfoContext.getEntitySet();
+            Entity entity = null;// uriInfoContext.getEntity();
+            EdmEntitySet edmEntitySet = null;// uriInfoContext.getEntitySet();
 
             InputStream requestInputStream = request.getBody();
             ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
@@ -403,8 +427,8 @@ class PostgresDataService implements PersistenceDataService {
 
                 existingProp.setValue(existingProp.getValueType(), updateProperty.getValue());
             }
-            updateEntity(edmEntitySet, uriInfoContext.getKeyParams(), entity, serviceMetadata);
-
+            // updateEntity(edmEntitySet, uriInfoContext.getKeyParams(), entity, serviceMetadata);
+            updateEntity(edmEntitySet, null, entity, serviceMetadata);
         } catch (DeserializerException e) {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
         } catch (SerializerException e) {
@@ -505,7 +529,6 @@ class PostgresDataService implements PersistenceDataService {
         throw new ODataApplicationException(String.format("EntitySet %s not found", refName), HttpStatusCode.NOT_FOUND.getStatusCode(), Locale.CHINESE);
     }
 
-
     private String where(EdmEntitySet edmEntitySet, Map keyParams) {
         StringBuffer sqlBuilder = new StringBuffer();
         sqlBuilder.append(" where \"repositoryId\" = '").append(servlet.getRepositoryId()).append("' and name='").append(edmEntitySet.getName()).append("'");
@@ -561,50 +584,13 @@ class PostgresDataService implements PersistenceDataService {
     }
 
     class UriInfoContext {
-        Entity entity = null;
-        EdmEntitySet preEntitySet = null;
+        JsonObj entity = null;
         EdmEntitySet entitySet = null;
         List<UriParameter> keyParams;
         EdmNavigationProperty edmNavigationProperty;
 
-        public Entity getEntity() {
-            return entity;
-        }
-
-        public void setEntity(Entity entity) {
-            this.entity = entity;
-        }
-
-        public EdmEntitySet getEntitySet() {
-            return entitySet;
-        }
-
-        public void setEntitySet(EdmEntitySet edmEntitySet) {
-            this.entitySet = edmEntitySet;
-        }
-
-        public List<UriParameter> getKeyParams() {
-            return keyParams;
-        }
-
-        public void setKeyParams(List<UriParameter> keyParams) {
-            this.keyParams = keyParams;
-        }
-
-        public EdmEntitySet getPreEntitySet() {
-            return preEntitySet;
-        }
-
-        public void setPreEntitySet(EdmEntitySet preEntitySet) {
-            this.preEntitySet = preEntitySet;
-        }
-
-        public EdmNavigationProperty getEdmNavigationProperty() {
-            return edmNavigationProperty;
-        }
-
-        public void setEdmNavigationProperty(EdmNavigationProperty edmNavigationProperty) {
-            this.edmNavigationProperty = edmNavigationProperty;
+        public EdmEntityType getEntityType() {
+            return edmNavigationProperty == null ? entitySet.getEntityType() : edmNavigationProperty.getType();
         }
     }
 

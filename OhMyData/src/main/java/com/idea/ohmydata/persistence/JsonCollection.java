@@ -1,0 +1,21 @@
+package com.idea.ohmydata.persistence;
+
+import org.apache.olingo.commons.api.data.EntityCollection;
+import org.apache.olingo.server.api.OData;
+import org.apache.olingo.server.api.ODataApplicationException;
+
+import java.util.ArrayList;
+
+
+public class JsonCollection extends ArrayList<JsonObj> {
+
+    public EntityCollection toEntityCollection(OData oData) throws ODataApplicationException {
+        EntityCollection entityCollection = new EntityCollection();
+        for (JsonObj jsonObj : this) {
+            entityCollection.getEntities().add(jsonObj.toEntity(oData));
+        }
+
+        return entityCollection;
+    }
+
+}
