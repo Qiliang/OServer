@@ -103,13 +103,13 @@ public class DefaultEntityProcessor implements EntityProcessor {
         EdmEntityType edmEntityType = edmEntitySet.getEntityType();
 
 
-        InputStream requestInputStream = request.getBody();
-        ODataFormat requestODataFormat = ODataFormat.fromContentType(requestFormat);
-        ODataDeserializer deserializer = this.odata.createDeserializer(requestODataFormat);
-        DeserializerResult result = deserializer.entity(requestInputStream, edmEntityType);
-        Entity requestEntity = result.getEntity();
+//        InputStream requestInputStream = request.getBody();
+//        ODataFormat requestODataFormat = ODataFormat.fromContentType(requestFormat);
+//        ODataDeserializer deserializer = this.odata.createDeserializer(requestODataFormat);
+//        DeserializerResult result = deserializer.entity(requestInputStream, edmEntityType);
+//        Entity requestEntity = result.getEntity();
 
-        HttpMethod httpMethod = request.getMethod();
+       // HttpMethod httpMethod = request.getMethod();
         persistenceDataService.updateEntity(uriInfo, request, odata, serviceMetadata);
         //storage.updateEntity(edmEntitySet, keyPredicates, requestEntity, httpMethod);
 

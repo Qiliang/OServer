@@ -48,7 +48,7 @@ public class DefaultEntityCollectionProcessor implements EntityCollectionProcess
         DbEntityCollection entitySet = persistenceDataService.readEntityCollection(uriInfo, odata, serviceMetadata);
         ODataFormat format = ODataFormat.fromContentType(responseFormat);
         ODataSerializer serializer = odata.createSerializer(format);
-        // EdmEntityType edmEntityType = entitySet.getEntities().size() > 0 ? entitySet.getEntities().get(0).get: edmEntitySet.getEntityType();
+        // EdmEntityType edmEntityType = entitySet.getEntities().size() > 0 ? entitySet.getEntities().get(0).get: edmEntitySet.getType();
 
         ContextURL contextUrl = ContextURL.with().entitySet(edmEntitySet).serviceRoot(URI.create(request.getRawBaseUri() + "/")).build();
 
