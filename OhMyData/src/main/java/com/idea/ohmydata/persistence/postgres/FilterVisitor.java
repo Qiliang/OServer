@@ -1,4 +1,4 @@
-package com.idea.ohmydata.persistence.postgres.visitor;
+package com.idea.ohmydata.persistence.postgres;
 
 
 import org.apache.olingo.commons.api.edm.EdmEnumType;
@@ -48,11 +48,6 @@ public class FilterVisitor implements ExpressionVisitor {
         }
 
         throw new ODataApplicationException("Unsupported expression:" + expression.toString(), HttpStatusCode.EXPECTATION_FAILED.getStatusCode(), Locale.ENGLISH);
-    }
-
-
-    public String getSql() {
-        return null;
     }
 
 
@@ -187,7 +182,7 @@ public class FilterVisitor implements ExpressionVisitor {
     public Object visitMember(UriInfoResource member) throws ExpressionVisitException, ODataApplicationException {
         List<UriResource> resourcePaths = member.getUriResourceParts();
         UriResourceProperty uriResourceProperty = (UriResourceProperty) resourcePaths.get(0);
-        return " \"data\"->>'" + uriResourceProperty.getProperty().getName() + "'";
+        return " t.\"data\"->>'" + uriResourceProperty.getProperty().getName() + "'";
     }
 
     @Override
@@ -211,7 +206,7 @@ public class FilterVisitor implements ExpressionVisitor {
             EdmMember edmMember = type.getMember(enumValue.toString());
             if (edmMember == null)
                 throw new ODataApplicationException(enumValue + " is not a valid enum member", HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.ENGLISH);
-            return "'" + edmMember.getName() + "'";
+            return "'" + edmMember.getValue() + "'";
         }
 
         return null;

@@ -5,8 +5,8 @@ import com.idea.ohmydata.UriInfoUtils;
 import com.idea.ohmydata.persistence.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.AutoCloseInputStream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.apache.olingo.commons.api.data.*;
 import org.apache.olingo.commons.api.edm.*;
 import org.apache.olingo.commons.api.format.ODataFormat;
 import org.apache.olingo.commons.api.http.HttpMethod;
@@ -22,6 +22,7 @@ import org.apache.olingo.server.api.deserializer.ODataDeserializer;
 import org.apache.olingo.server.api.uri.*;
 import org.apache.olingo.server.api.uri.queryoption.ExpandItem;
 import org.apache.olingo.server.api.uri.queryoption.ExpandOption;
+import org.apache.olingo.server.api.uri.queryoption.FilterOption;
 import org.apache.olingo.server.core.uri.parser.Parser;
 import org.apache.olingo.server.core.uri.queryoption.ExpandOptionImpl;
 import org.postgresql.util.PGobject;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.*;
 
 @Service
@@ -78,33 +80,29 @@ class PostgresDataService implements PersistenceDataService {
     }
 
     @Override
-    public DbEntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
-        DbEntityCollection dbEntityCollection = new DbEntityCollection();
+    public JsonCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
         UriInfoContext ctx = getUriInfoContext(uriInfo);
 
         if (ctx.edmNavigationProperty != null) {
-            JsonCollection jsonObjs = retrieveRefEntityCollection(ctx, uriInfo.asUriInfoResource(), new JsonObj());
-            dbEntityCollection.setEntityType(ctx.getType());
-            dbEntityCollection.setEntityCollection(jsonObjs.toEntityCollection(odata));
+            JsonCollection jsonObjs = retrieveRefEntityCollection(ctx, uriInfo.asUriInfoResource());
+            return jsonObjs;
         } else {
-            JsonCollection jsonObjs = retrieveEntityCollection(ctx.getType(), uriInfo.asUriInfoResource(), new JsonObj());
-            dbEntityCollection.setEntityType(ctx.getType());
-            dbEntityCollection.setEntityCollection(jsonObjs.toEntityCollection(odata));
+            JsonCollection jsonObjs = retrieveEntityCollection(ctx, uriInfo.asUriInfoResource());
+            return jsonObjs;
         }
-        return dbEntityCollection;
     }
 
-    private JsonCollection retrieveEntityCollection(EdmEntityType edmEntityType, UriInfoResource uriInfoResource, JsonObj condition) throws ODataApplicationException {
+    private JsonCollection retrieveEntityCollection(UriInfoContext ctx, UriInfoResource uriInfoResource) throws ODataApplicationException {
         StringBuilder sql = new StringBuilder(255);
-        sql.append("select data from entity where \"repositoryId\" = ").append("'").append(servlet.getRepositoryId()).append("' and type='")
-                .append(edmEntityType.getFullQualifiedName().getFullQualifiedNameAsString()).append("'");
-        return retrieveEntityCollection(edmEntityType, uriInfoResource, sql.toString(), condition);
+        sql.append("select t.type,t.data from (select type,data from entity where \"repositoryId\" = ").append("'").append(servlet.getRepositoryId())
+                .append("' and type='").append(ctx.getType().getFullQualifiedName().getFullQualifiedNameAsString()).append("') t");
+        return retrieveEntityCollection(ctx.getType(), uriInfoResource, sql.toString());
     }
 
-    private JsonCollection retrieveRefEntityCollection(UriInfoContext ctx, UriInfoResource uriInfoResource, JsonObj condition) throws ODataApplicationException {
+    private JsonCollection retrieveRefEntityCollection(UriInfoContext ctx, UriInfoResource uriInfoResource) throws ODataApplicationException {
         StringBuilder sql = new StringBuilder(255);
         sql.append("select t.type, t.data from ");
-        String type = String.format("%s/%s", ctx.entity.getEdmEntityType().getFullQualifiedName().getFullQualifiedNameAsString(), ctx.edmNavigationProperty.getName());
+        String type = String.format("%s/%s", ctx.entity.getType().getFullQualifiedName().getFullQualifiedNameAsString(), ctx.edmNavigationProperty.getName());
         sql.append("(select data from entity where type='").append(type).append("' and ").append("\"repositoryId\" ='").append(servlet.getRepositoryId()).append("' and ")
                 .append(ctx.buildRefTableKeys()).append(") ref");
         sql.append(" inner join ");
@@ -112,16 +110,21 @@ class PostgresDataService implements PersistenceDataService {
                 .append(" and ").append("\"repositoryId\" ='").append(servlet.getRepositoryId()).append("') t");
         sql.append(" on ");
         sql.append(ctx.buildInnerJoinKeys("ref"));
-        return retrieveEntityCollection(ctx.getType(), uriInfoResource, sql.toString(), condition);
+        return retrieveEntityCollection(ctx.getType(), uriInfoResource, sql.toString());
     }
 
-    private JsonCollection retrieveEntityCollection(EdmEntityType edmEntityType, UriInfoResource uriInfoResource, String baseSQL, JsonObj condition) throws ODataApplicationException {
+    private JsonCollection retrieveEntityCollection(EdmEntityType edmEntityType, UriInfoResource uriInfoResource, String baseSQL) throws ODataApplicationException {
         int top = uriInfoResource.getTopOption() == null ? 0 : uriInfoResource.getTopOption().getValue();
         int skip = uriInfoResource.getSkipOption() == null ? 0 : uriInfoResource.getSkipOption().getValue();
         String orderBy = UriInfoUtils.getOrderBy(uriInfoResource.getOrderByOption());
         ExpandOption expandOption = uriInfoResource.getExpandOption() == null ? new ExpandOptionImpl() : uriInfoResource.getExpandOption();
+
+        String filter = filterVisitor(uriInfoResource.getFilterOption());
+
         StringBuilder sql = new StringBuilder(baseSQL);
-        sql.append(" and ( ").append(condition.toSQL()).append(" )");
+        sql.append(" where ");
+        //sql.append(" ( ").append(condition.toSQL()).append(" )");
+        sql.append(" ( ").append(filter).append(" )");
         sql.append(orderBy);
         if (top > 0) sql.append(" limit ").append(top);
         if (skip > 0) sql.append(" offset ").append(skip);
@@ -132,7 +135,15 @@ class PostgresDataService implements PersistenceDataService {
             EdmEntityType entityType = seekType(row.get("type").toString(), edmEntityType);
             entityCollection.add(retrieveEntity(entityType, expandOption, (PGobject) row.get("data")));
         }
+        entityCollection.setType(edmEntityType);
         return entityCollection;
+
+    }
+
+    private String filterVisitor(FilterOption filterOption) throws ODataApplicationException {
+        if (filterOption == null) return " 1=1 ";
+        FilterVisitor visitor = new FilterVisitor();
+        return (String) visitor.visit(filterOption.getExpression());
 
     }
 
@@ -143,29 +154,26 @@ class PostgresDataService implements PersistenceDataService {
     }
 
     @Override
-    public Entity readEntity(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
+    public JsonObj readEntity(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
         UriInfoContext ctx = getUriInfoContext(uriInfo);
-        return ctx.entity.toEntity(odata);
+        return ctx.entity;
     }
 
     @Override
     @Transactional
-    public Entity createEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
+    public JsonObj createEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException {
 
         try {
             UriInfoContext ctx = getUriInfoContext(uriInfo);
             EdmNavigationProperty edmNavigationProperty = ctx.edmNavigationProperty;
             byte[] content = IOUtils.toByteArray(new AutoCloseInputStream(request.getBody()));
             JsonObj entity = JsonObj.parse(content, ctx.getType());
-            jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"type\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), entity.getEdmEntityType().getFullQualifiedName().getFullQualifiedNameAsString(), entity.toPgObject());
+            jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"type\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), entity.getType().getFullQualifiedName().getFullQualifiedNameAsString(), entity.toPgObject());
             if (ctx.entity != null) {
                 createRef(edmNavigationProperty.getName(), ctx.entity.getKeyObj(), entity.getKeyObj());
             }
-            ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-            return deserializer.entity(toInputStream(content), ctx.getType()).getEntity();
+            return entity;
 
-        } catch (DeserializerException e) {
-            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
         } catch (Exception e) {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
         }
@@ -177,14 +185,13 @@ class PostgresDataService implements PersistenceDataService {
     }
 
     private void createRef(String navigationName, JsonObj source, JsonObj target) throws ODataApplicationException {
-        JsonObj data = new JsonObj();
-        data.put("source", source);
-        data.put("sourceType", source.getEdmEntityType().getFullQualifiedName().getFullQualifiedNameAsString());
-        data.put("target", target);
-        data.put("targetType", target.getEdmEntityType().getFullQualifiedName().getFullQualifiedNameAsString());
-        JsonObj ref = new JsonObj();
-        ref.put(navigationName, data);
-        String type = String.format("%s/%s", source.getEdmEntityType().getFullQualifiedName().getFullQualifiedNameAsString(), navigationName);
+        JsonObj ref = JsonObj.simple();
+        ref.put("source", source);
+        ref.put("sourceType", source.getType().getFullQualifiedName().getFullQualifiedNameAsString());
+        ref.put("target", target);
+        ref.put("targetType", target.getType().getFullQualifiedName().getFullQualifiedNameAsString());
+        String type = String.format("%s/%s", source.getType().getFullQualifiedName().getFullQualifiedNameAsString(), navigationName);
+
         jdbcTemplate.update("INSERT INTO entity(\"repositoryId\", \"type\", \"data\" ) VALUES (?, ?, ?)", servlet.getRepositoryId(), type, ref.toPgObject());
     }
 
@@ -197,7 +204,7 @@ class PostgresDataService implements PersistenceDataService {
         if (resultSet.size() == 0)
             throw new ODataApplicationException("Entity Not Found", HttpStatusCode.BAD_REQUEST.getStatusCode(), Locale.getDefault());
 
-        EdmEntityType entityType = seekType(resultSet.get(0).get("type").toString(), condition.getEdmEntityType());
+        EdmEntityType entityType = seekType(resultSet.get(0).get("type").toString(), condition.getType());
         return retrieveEntity(entityType, expandOption, (PGobject) resultSet.get(0).get("data"));
     }
 
@@ -206,11 +213,10 @@ class PostgresDataService implements PersistenceDataService {
         for (ExpandItem expandItem : expandOption.getExpandItems()) {
             UriResourceNavigation uriResourceNavigation = (UriResourceNavigation) expandItem.getResourcePath().getUriResourceParts().get(0);
             EdmNavigationProperty edmNavigationProperty = uriResourceNavigation.getProperty();
-            JsonObj expandCondition = new JsonObj();
             UriInfoContext ctx = new UriInfoContext();
             ctx.entity = entityObj;
             ctx.edmNavigationProperty = edmNavigationProperty;
-            List<JsonObj> jsonObjList = retrieveRefEntityCollection(ctx, expandItem.getResourcePath(), expandCondition);
+            List<JsonObj> jsonObjList = retrieveRefEntityCollection(ctx, expandItem.getResourcePath());
             if (edmNavigationProperty.isCollection()) {
                 entityObj.put(edmNavigationProperty.getName(), jsonObjList);
             } else {
@@ -272,7 +278,7 @@ class PostgresDataService implements PersistenceDataService {
             UriInfoContext ctx = getUriInfoContext(uriInfo);
             byte[] content = IOUtils.toByteArray(new AutoCloseInputStream(request.getBody()));
             JsonObj updateEntity = JsonObj.parse(content, ctx.getType());
-            for (String propName : ctx.entity.getEdmEntityType().getPropertyNames()) {
+            for (String propName : ctx.entity.getType().getPropertyNames()) {
                 if (ctx.entity.isKey(propName)) continue;
                 if (request.getMethod().equals(HttpMethod.PUT)) ctx.entity.remove(propName);
                 if (updateEntity.containsKey(propName)) {
@@ -299,7 +305,9 @@ class PostgresDataService implements PersistenceDataService {
     @Override
     @Transactional
     public void deleteEntity(UriInfo uriInfo) throws ODataApplicationException {
-
+        UriInfoContext ctx = getUriInfoContext(uriInfo);
+        jdbcTemplate.update("DELETE FROM entity  WHERE " + ctx.entity.getKeyObj().toSQL());
+        jdbcTemplate.update("DELETE FROM entity  WHERE " + ctx.entity.getKeyObj().toNavigationSQL());
     }
 
 
@@ -320,7 +328,7 @@ class PostgresDataService implements PersistenceDataService {
             List<String> joinCondition = new ArrayList<>();
             JsonObj keyValues = this.entity.getKeyObj();
             for (String key : keyValues.keySet()) {
-                joinCondition.add(String.format("(data->'%s'->'source'->>'%s'='%s' )", this.edmNavigationProperty.getName(), key, keyValues.get(key)));
+                joinCondition.add(String.format("(data->'source'->>'%s'='%s' )", key, keyValues.get(key)));
             }
             return String.join(" and ", joinCondition);
         }
@@ -328,7 +336,7 @@ class PostgresDataService implements PersistenceDataService {
         public String buildInnerJoinKeys(String alias) {
             List<String> joinCondition = new ArrayList<>();
             for (String key : this.getType().getKeyPredicateNames()) {
-                joinCondition.add(String.format("(%s.data->'%s'->'target'->'%s'=t.data->'%s' )", alias, this.edmNavigationProperty.getName(), key, key));
+                joinCondition.add(String.format("(%s.data->'target'->'%s'=t.data->'%s' )", alias, key, key));
             }
             return String.join(" and ", joinCondition);
         }

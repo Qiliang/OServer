@@ -53,8 +53,6 @@ public class ODataServlet extends HttpServlet {
 
     public ODataServlet() {
         super();
-
-
     }
 
     public String getRepositoryId() {

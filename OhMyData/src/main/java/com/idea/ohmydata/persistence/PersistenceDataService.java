@@ -14,18 +14,17 @@ import org.apache.olingo.server.core.uri.UriInfoImpl;
 
 public interface PersistenceDataService {
 
-    DbEntityCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
+    JsonCollection readEntityCollection(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     int countEntityCollection(UriInfo uriInfo) throws ODataApplicationException;
 
-    Entity readEntity(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
+    JsonObj readEntity(UriInfo uriInfo, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
-    Entity createEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException, DeserializerException, SerializerException;
+    JsonObj createEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     void updateEntity(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 
     void deleteEntity(UriInfo uriInfo) throws ODataApplicationException;
-
 
     void createReference(UriInfo uriInfo, ODataRequest request, OData odata, ServiceMetadata serviceMetadata) throws ODataApplicationException;
 

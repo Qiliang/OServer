@@ -45,36 +45,39 @@ public class JsonObj extends HashMap<String, Object> {
         }
     }
 
-    public static JsonObj parse(List<UriParameter> parameters,EdmEntityType edmEntityType) {
-        JsonObj jsonObj = new JsonObj();
+    public static JsonObj parse(List<UriParameter> parameters, EdmEntityType edmEntityType) {
+        JsonObj jsonObj = new JsonObj(edmEntityType);
         for (UriParameter parameter : parameters) {
             jsonObj.put(parameter.getName(), parameter.getText().replaceAll("'", ""));
         }
-        jsonObj.setEdmEntityType(edmEntityType);
         return jsonObj;
+    }
+
+    public static JsonObj simple() {
+        return new JsonObj();
     }
 
     private EdmEntityType edmEntityType;
 
-    public JsonObj() {
+    JsonObj() {
+
     }
 
-    public JsonObj(Map<? extends String, ?> m) {
-        super(m);
+    public JsonObj(EdmEntityType edmEntityType) {
+        this.edmEntityType = edmEntityType;
     }
 
-    public EdmEntityType getEdmEntityType() {
+    public EdmEntityType getType() {
         return edmEntityType;
     }
 
-    public JsonObj setEdmEntityType(EdmEntityType edmEntityType) {
+    private JsonObj setEdmEntityType(EdmEntityType edmEntityType) {
         this.edmEntityType = edmEntityType;
         return this;
     }
 
     public JsonObj getKeyObj() {
-        JsonObj keys = new JsonObj();
-        keys.setEdmEntityType(this.edmEntityType);
+        JsonObj keys = new JsonObj(edmEntityType);
         for (String s : edmEntityType.getKeyPredicateNames()) {
             keys.put(s, this.get(s));
         }
@@ -84,11 +87,22 @@ public class JsonObj extends HashMap<String, Object> {
 
     public String toSQL() {
         List<String> list = new ArrayList<>();
+        list.add(String.format(" type= '%s'", this.getType().getFullQualifiedName().getFullQualifiedNameAsString()));
         for (String key : this.keySet()) {
             list.add(String.format("\"data\"->>'%s'='%s'", key, this.get(key)));
         }
-        if (list.size() == 0) return " 1=1 ";
         return String.join(" and ", list);
+    }
+
+    public String toNavigationSQL() {
+
+        List<String> keys = new ArrayList<>();
+        keys.add(String.format(" data->>'targetType'= '%s'", this.getType().getFullQualifiedName().getFullQualifiedNameAsString()));
+        for (String key : this.keySet()) {
+            keys.add(String.format("(data->'target'->>'%s'='%s' )", key, this.get(key)));
+        }
+
+        return String.join(" and ", keys);
     }
 
     private String toJson() throws ODataApplicationException {
@@ -108,17 +122,17 @@ public class JsonObj extends HashMap<String, Object> {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
         }
         return pGobject;
-
     }
 
     public Entity toEntity(OData odata) throws ODataApplicationException {
         try {
             ODataDeserializer deserializer = odata.createDeserializer(ODataFormat.JSON);
-            return deserializer.entity(toInputStream(), edmEntityType).getEntity();
+            Entity entity = deserializer.entity(toInputStream(), edmEntityType).getEntity();
+            entity.setType(this.getType().getFullQualifiedName().getFullQualifiedNameAsString());
+            return entity;
         } catch (Exception e) {
             throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault());
         }
-
 
     }
 
@@ -135,8 +149,12 @@ public class JsonObj extends HashMap<String, Object> {
     }
 
 
-    private InputStream toInputStream() throws JsonProcessingException {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(mapper.writeValueAsBytes(this));
-        return new AutoCloseInputStream(inputStream);
+    public InputStream toInputStream() throws ODataApplicationException {
+        try {
+            ByteArrayInputStream inputStream = new ByteArrayInputStream(mapper.writeValueAsBytes(this));
+            return new AutoCloseInputStream(inputStream);
+        } catch (JsonProcessingException e) {
+            throw new ODataApplicationException(e.getMessage(), HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), Locale.getDefault(), e);
+        }
     }
 }
